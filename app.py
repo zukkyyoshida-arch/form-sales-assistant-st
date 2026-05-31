@@ -54,10 +54,17 @@ for i in range(st.session_state.url_count):
     if url.strip():
         urls.append(url.strip())
 
-if st.session_state.url_count < 5:
-    if st.button("➕ URLを追加", key="add_url_btn"):
-        st.session_state.url_count += 1
-        st.rerun()
+col1, col2, _ = st.columns([1, 1, 3])
+with col1:
+    if st.session_state.url_count < 5:
+        if st.button("➕ 追加", key="add_url_btn"):
+            st.session_state.url_count += 1
+            st.rerun()
+with col2:
+    if st.session_state.url_count > 1:
+        if st.button("➖ 減らす", key="remove_url_btn"):
+            st.session_state.url_count -= 1
+            st.rerun()
 
 if st.button("分析＆文面生成", type="primary"):
     if not urls:
