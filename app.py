@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 import google.generativeai as genai
 import json
 import os
@@ -42,14 +43,65 @@ def scrape_url(url):
         st.warning(f"URLの取得に失敗しました ({url}): {e}")
         return None
 
+def find_related_urls(main_url):
+    """公式サイトから関連リンク（採用、ニュース、PR TIMES等）を自動抽出する"""
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        res = requests.get(main_url, headers=headers, timeout=10)
+        res.raise_for_status()
+        soup = BeautifulSoup(res.content, 'html.parser')
+        
+        found_urls = []
+        target_keywords = ['recruit', 'saiyo', 'news', 'prtimes.jp', 'wantedly.com', 'note.com']
+        
+        for a in soup.find_all('a', href=True):
+            href = a['href']
+            full_url = urljoin(main_url, href)
+            
+            # 関連性が高いキーワードが含まれているかチェック
+            if any(keyword in full_url.lower() for keyword in target_keywords):
+                # 重複やメインURL自体は避ける
+                if full_url not in found_urls and full_url != main_url:
+                    found_urls.append(full_url)
+                    
+            if len(found_urls) >= 4: # 最大4つまで（合計5URLになるように）
+                break
+                
+        return found_urls
+    except Exception as e:
+        return []
+
 # --- UI ---
-st.write("対象企業の参考URL（コーポレートサイト、採用ページ等）を入力してください。（最大5個）")
+st.write("対象企業の公式サイトのURLを入力してください。")
 
 if "url_count" not in st.session_state:
     st.session_state.url_count = 1
 
+# まず「参考URL 1」だけを独立して配置
+url_0 = st.text_input("参考URL 1 (公式サイト)", key="url_0")
+
+if st.button("🔍 関連URLを自動検索"):
+    if url_0.strip():
+        with st.spinner("公式サイトから関連リンクを探索中..."):
+            related = find_related_urls(url_0.strip())
+            if related:
+                # 見つかった分だけ入力欄を増やし、セッションにURLを保存
+                st.session_state.url_count = min(5, 1 + len(related))
+                for idx, r_url in enumerate(related):
+                    st.session_state[f"url_{idx+1}"] = r_url
+                st.success(f"{len(related)}件の関連URLを自動設定しました！")
+            else:
+                st.warning("関連URLが見つかりませんでした。ご自身で追加してください。")
+    else:
+        st.error("まず「参考URL 1」に公式サイトのURLを入力してください。")
+
 urls = []
-for i in range(st.session_state.url_count):
+if url_0.strip():
+    urls.append(url_0.strip())
+
+# 残りのURL入力欄（自動追加された分、または手動追加分）
+for i in range(1, st.session_state.url_count):
+    # url_0は既に表示したので i+1 (参考URL 2, 3...)
     url = st.text_input(f"参考URL {i+1}", key=f"url_{i}")
     if url.strip():
         urls.append(url.strip())
