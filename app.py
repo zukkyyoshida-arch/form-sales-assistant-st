@@ -45,11 +45,19 @@ def scrape_url(url):
 # --- UI ---
 st.write("対象企業の参考URL（コーポレートサイト、採用ページ等）を入力してください。（最大5個）")
 
+if "url_count" not in st.session_state:
+    st.session_state.url_count = 1
+
 urls = []
-for i in range(5):
+for i in range(st.session_state.url_count):
     url = st.text_input(f"参考URL {i+1}", key=f"url_{i}")
     if url.strip():
         urls.append(url.strip())
+
+if st.session_state.url_count < 5:
+    if st.button("➕ URLを追加", key="add_url_btn"):
+        st.session_state.url_count += 1
+        st.rerun()
 
 if st.button("分析＆文面生成", type="primary"):
     if not urls:
